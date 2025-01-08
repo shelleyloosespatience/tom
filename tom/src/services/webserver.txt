@@ -1,0 +1,72 @@
+const express = require('express');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid'); // For trade IDs
+const TradeValidator = require('../services/validation'); // Import the validator
+
+class WebServer {
+    constructor() {
+        this.app = express();
+        this.port = process.env.PORT || 3000;
+        this.trades = [];
+        this.tradeValidator = new TradeValidator(); // Initialize the validator
+
+        // Example: Add valid Roblox usernames (replace with actual data later)
+        this.tradeValidator.addValidUsers(['Alice', 'Bob', 'Charlie']);
+
+        this.app.use(express.json());
+        this.setupRoutes();
+        this.start();
+    }
+
+    setupRoutes() {
+        // Serve the frontend
+        this.app.get('/', (req, res) => {
+            res.sendFile(path.join(__dirname, 'index.html'));
+        });
+
+        // Process a trade command from Discord
+        this.app.post('/api/discord/trade', (req, res) => {
+            const { seller, buyer, pet } = req.body;
+
+            if (!seller || !buyer || !pet) {
+                return res.status(400).json({ error: 'Seller, buyer, and pet are required.' });
+            }
+
+            // Validate the trade using TradeValidator
+            const validationResult = this.tradeValidator.validateTrade(seller, buyer, pet);
+
+            if (!validationResult.isValid) {
+                console.error(validationResult.error);
+                return res.status(400).json({ error: validationResult.error });
+            }
+
+            // If valid, create a new trade
+            const newTrade = {
+                id: uuidv4(),
+                seller,
+                buyer,
+                pet,
+                status: 'pending',
+                createdAt: new Date(),
+            };
+
+            this.trades.push(newTrade);
+            console.log(`Trade validated and created: ${JSON.stringify(newTrade)}`);
+            res.status(201).json({ message: 'Trade created successfully.', trade: newTrade });
+        });
+
+        // Get all trades
+        this.app.get('/api/trades', (req, res) => {
+            res.status(200).json(this.trades);
+        });
+    }
+
+    start() {
+        this.app.listen(this.port, () => {
+            console.log(`Express server running on http://localhost:${this.port}`);
+        });
+    }
+}
+// Start the server
+const webServer = new WebServer();
+module.exports = webServer;

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Roblox Bot Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Styling for the body */
+        body {
+            background-image: url('uwu.jpg');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            color: #fff;
+        }
+
+        /* Styling for the header */
+        header {
+            background-image: url('uwu.jpg');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center center;
+            text-align: center;
+            padding: 20px 0;
+            color: white;
+        }
+
+        .title {
+            font-size: 2rem;
+            margin: 0;
+        }
+
+        /* General styling for main sections */
+        main {
+            padding: 20px;
+        }
+
+        .status-section, .actions-section, .logs-section {
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+        }
+
+        .status-card, .action-card, .log-box {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: none;
+        }
+
+        button {
+            display: inline-block;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .feedback {
+            margin-top: 10px;
+        }
+
+        /* Styling for the center link */
+        .center {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        a#discordButton {
+            display: inline-block;
+            background-color: #5865F2;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+        }
+
+        a#discordButton:hover {
+            background-color: #4752C4;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 class="title">RobloxPetTrades</h1>
+    </header>
+
+    <main>
+        <section class="status-section" aria-labelledby="status-heading">
+            <h2 id="status-heading">Status Overview</h2>
+            <div class="status-card" role="region" aria-live="polite">
+                <p><strong>Bot Username:</strong> <span id="username" aria-label="Bot Username">Loading...</span></p>
+                <p><strong>Server Status:</strong> <span id="serverStatus" aria-label="Server Status">Loading...</span></p>
+                <p><strong>Last Lua Action:</strong> <span id="lastLuaAction" aria-label="Last Lua Action">Loading...</span></p>
+            </div>
+        </section>
+
+        <section class="actions-section" aria-labelledby="actions-heading">
+            <h2 id="actions-heading">Actions</h2>
+            <div class="action-card" role="form">
+                <p>Use the <strong>!trade</strong> command to send trade actions to Lua:</p>
+                <form id="tradeForm">
+                    <label for="robloxUser">Roblox Username:</label>
+                    <input type="text" id="robloxUser" placeholder="Enter Roblox Username" required aria-required="true">
+
+                    <label for="petName">Pet Name:</label>
+                    <input type="text" id="petName" placeholder="Enter Pet Name" required aria-required="true">
+
+                    <button type="submit" aria-label="Send Trade">Send Trade</button>
+                </form>
+                <p class="feedback" id="feedbackMessage" role="alert"></p>
+            </div>
+        </section>
+
+        <section class="logs-section" aria-labelledby="logs-heading">
+            <h2 id="logs-heading">Event Logs</h2>
+            <div class="log-box" id="logs" role="region" aria-live="polite">
+                <p>Fetching logs...</p>
+            </div>
+        </section>
+
+        <div class="center">
+            <a href="https://discord.gg/laxenta" id="discordButton" target="_blank" rel="noopener">
+                Need Help? Join Our Discord
+            </a>
+        </div>
+    </main>
+
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fetchData = async () => {
+                try {
+                    const response = await fetch('/api/data');
+                    const data = await response.json();
+
+                    document.getElementById('username').textContent = data.userName || 'Not Logged In';
+                    document.getElementById('serverStatus').textContent = data.serverStatus || 'Unknown';
+                    document.getElementById('lastLuaAction').textContent = data.lastLuaAction
+                        ? `${data.lastLuaAction.action}: ${JSON.stringify(data.lastLuaAction.response)}`
+                        : 'No Actions Yet';
+
+                    document.getElementById('logs').innerHTML = `<p>Logs fetched at ${new Date().toLocaleTimeString()}</p>`;
+                } catch (error) {
+                    console.error('Error fetching data:', error);
+                }
+            };
+
+            const tradeForm = document.getElementById('tradeForm');
+            tradeForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                const username = document.getElementById('robloxUser').value;
+                const petName = document.getElementById('petName').value;
+
+                const feedbackMessage = document.getElementById('feedbackMessage');
+                feedbackMessage.textContent = 'Sending trade action...';
+
+                try {
+                    const response = await fetch('/api/send-trade', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, petName }),
+                    });
+
+                    const result = await response.json();
+                    feedbackMessage.textContent = result.message || 'Trade sent successfully!';
+                } catch (error) {
+                    feedbackMessage.textContent = 'Error sending trade. Please try again.';
+                }
+            });
+
+            fetchData();
+            setInterval(fetchData, 5000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+    "name": "tom-is-broke-asf-doesnt-know-how-expensive-coding-is-lmao",
+    "version": "1.0.0",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "dependencies": {
+        "active-win": "^8.2.1",
+        "axios": "^1.7.9",
+        "discord.js": "^14.11.0",
+        "dotenv": "^16.0.3",
+        "express": "^4.21.1",
+        "mongoose": "^8.8.3",
+        "noblox.js": "^6.0.2",
+        "onnxruntime-node": "^1.20.1",
+        "puppeteer": "^23.10.0",
+        "robotjs": "^0.6.0",
+        "sharp": "^0.33.5"
+    }
+}

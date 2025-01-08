@@ -1,0 +1,513 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Arial', sans-serif;
+    background-color: #121212; 
+    color: #e0e0e0; 
+    overflow-x: hidden; 
+}
+
+h1, h2, h3, h4, p, label {
+    margin: 0;
+    padding: 0;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+button {
+    cursor: pointer;
+    font-family: inherit;
+}
+
+header {
+    background-color: #1e1e1e;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+header .title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+main {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+footer {
+    text-align: center;
+    padding: 1rem;
+    background-color: #1e1e1e;
+    color: #757575;
+    font-size: 0.9rem;
+}
+
+footer p {
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    main {
+        padding: 0.5rem;
+    }
+
+    header .title {
+        font-size: 2rem;
+    }
+}
+
+.status-section {
+    background-color: #1e1e1e;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.status-card {
+    padding: 0.5rem;
+    color: #d4d4d4;
+}
+
+.status-card p {
+    font-size: 1rem;
+    margin: 0.5rem 0;
+}
+
+.status-card span {
+    font-weight: bold;
+}
+
+.actions-section {
+    background-color: #222222;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.action-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.status-section, .actions-section, .logs-section {
+    opacity: 0; 
+    transform: translateY(20px); /* Slight downward offset */
+    animation: fadeIn 1.5s ease-out forwards; 
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+form label {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+form input {
+    padding: 0.5rem;
+    font-size: 1rem;
+    border: 1px solid #333333;
+    border-radius: 5px;
+    background-color: #2a2a2a;
+    color: #ffffff;
+}
+
+form input::placeholder {
+    color: #aaaaaa;
+}
+
+form button {
+    background-color: #5865F2; 
+    color: #ffffff;
+    padding: 0.8rem 1rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+form button:hover {
+    background-color: #4752C4;
+}
+
+.feedback {
+    font-size: 0.9rem;
+    color: #ffb300; 
+}
+
+
+.logs-section {
+    background-color: #1e1e1e;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.log-box {
+    background-color: #222222;
+    padding: 1rem;
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.log-box p {
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
+    color: #c0c0c0;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background-image: url('uwu.png');
+    animation: snow 10s linear infinite;
+    z-index: 1;
+}
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background-image: url('uwu.png');
+    background-size: cover;
+    background-repeat: repeat;
+    animation: snowfall 15s linear infinite; 
+    z-index: -1;
+    opacity: 0.8; /* Subtle background effect */
+}
+@keyframes snowfall {
+    0% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    50% {
+      transform: translateY(50%);
+      opacity: 0.5;
+    }
+    100% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+ 
+  body {
+    background-image: url('uwu.jpg');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+}
+
+@keyframes snowfall {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 0 100%;
+    }
+}
+ 
+@keyframes snow {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 0 100%;
+    }
+}
+#discordButton {
+    display: inline-block;
+    margin: 1rem auto;
+    padding: 0.8rem 2rem;
+    background-color: #5865F2; 
+    color: #ffffff;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 50px;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+#discordButton:hover {
+    background-color: #4752C4;
+    transform: scale(1.05);
+}
+
+#discordButton:active {
+    transform: scale(0.98);
+}
+
+h2 {
+    font-size: 1.8rem;
+    color: #ffffff;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1rem;
+    border-bottom: 2px solid #3a3a3a;
+    padding-bottom: 0.5rem;
+}
+
+
+.status-card, .action-card, .log-box {
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.status-card:hover, .action-card:hover, .log-box:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.5);
+}
+
+a {
+    color: #BB86FC;
+    font-weight: bold;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* a lil mobile-adjustments fr */
+@media (max-width: 600px) {
+    .status-card, .action-card, .log-box {
+        padding: 1rem;
+    }
+
+    form input, form button {
+        font-size: 0.9rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+}
+
+
+body::before {
+    opacity: 0.8; 
+}
+
+
+#loader {
+    display: none; 
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    border: 5px solid #ffffff;
+    border-top: 5px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 999;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+
+#submissionModal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #1e1e1e;
+    color: #ffffff;
+    width: 90%;
+    max-width: 400px;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+}
+
+#submissionModal h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+#submissionModal p {
+    font-size: 1rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+#submissionModal button {
+    display: block;
+    margin: 0 auto;
+    padding: 0.8rem 2rem;
+    background-color: #5865F2;
+    color: #ffffff;
+    border: none;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+#submissionModal button:hover {
+    background-color: #4752C4;
+}
+
+#submissionModal button:active {
+    transform: scale(0.98);
+}
+
+header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #1e1e1e;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    animation: slideDown 0.5s ease-in-out;
+}
+
+@keyframes slideDown {
+    0% {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+main {
+    margin: 2rem auto;
+    max-width: 1200px;
+}
+
+
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
+    opacity: 0.7;
+    animation: snowfall 20s linear infinite;
+    z-index: 2;
+}
+
+@keyframes snowfall {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 0 200%;
+    }
+}
+
+
+form input:focus {
+    border: 1px solid #5865F2;
+    outline: none;
+    box-shadow: 0 0 5px rgba(88, 101, 242, 0.5);
+    transition: box-shadow 0.3s ease;
+}
+
+
+form button:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+
+.log-box {
+    scrollbar-width: thin;
+    scrollbar-color: #5865F2 #222222; 
+}
+
+.log-box::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-box::-webkit-scrollbar-thumb {
+    background: #5865F2;
+    border-radius: 4px;
+}
+
+.log-box::-webkit-scrollbar-thumb:hover {
+    background: #4752C4;
+}
+
+/* Smooth Fade-in Animation */
+.fade-in {
+    opacity: 0;
+    animation: fadeIn 1s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+footer {
+    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.4);
+}
+
+@media (min-width: 768px) {
+    main {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+    }
+
+    .logs-section {
+        grid-column: span 2;
+    }
+}
+
+.hidden {
+    display: none;
+}
+
+.center {
+    text-align: center;
+}
+
+.full-width {
+    width: 100%;
+}

@@ -1,0 +1,545 @@
+const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
+const axios = require('axios');
+const noblox = require('noblox.js');
+
+const API_URL = 'http://localhost:3000/api/discord/trade';
+const activeSetups = new Map();
+const pendingTrades = new Map();
+const tradeCooldowns = new Map();
+const COOLDOWN_TIME = 60000; // 1 minute cooldown
+
+module.exports = {
+  name: 'trade',
+  description: 'Pet Trading adoptme',
+  async execute(message, args) {
+    // Cooldown Check
+    if (tradeCooldowns.has(message.author.id)) {
+      const timeLeft = tradeCooldowns.get(message.author.id) - Date.now();
+      if (timeLeft > 0) {
+        return message.reply(`⏳ Please wait ${(timeLeft / 1000).toFixed(1)} seconds before starting another trade.`);
+      }
+    }
+
+    if (!args.length) return sendHelpMessage(message);
+
+    // Handle different subcommands
+    switch (args[0].toLowerCase()) {
+      case 'confirm':
+        return handleTradeConfirmation(message);
+      case 'cancel':
+        return handleTradeCancel(message);
+      case 'status':
+        return checkTradeStatus(message);
+      case 'help':
+        return sendHelpMessage(message);
+      default:
+        return initiateTrade(message, args);
+    }
+  }
+};
+
+async function initiateTrade(message, args) {
+  if (message.mentions.users.size !== 1) {
+    return message.reply('❌ Please mention one user to trade with! Usage: `!trade @user <petname>`');
+  }
+
+  const targetUser = message.mentions.users.first();
+  if (targetUser.bot) return message.reply('❌ You cannot trade with bots!');
+  if (targetUser.id === message.author.id) return message.reply('❌ You cannot trade with yourself!');
+
+  const petName = args.slice(2).join(' ').trim();
+  if (!petName || petName.length < 3) {
+    return message.reply('❌ Please specify a valid pet name (minimum 3 characters)!');
+  }
+
+  // Set cooldown
+  tradeCooldowns.set(message.author.id, Date.now() + COOLDOWN_TIME);
+  setTimeout(() => tradeCooldowns.delete(message.author.id), COOLDOWN_TIME);
+
+  const setupId = generateSetupId();
+  const buttons = createTradeButtons();
+
+  const setupEmbed = new EmbedBuilder()
+    .setTitle('🤝 New Trade Request')
+    .setColor('#FFD700')
+    .setDescription(`Trade Setup ID: ${setupId}`)
+    .addFields(
+      { name: 'Initiator', value: message.author.tag, inline: true },
+      { name: 'Partner', value: targetUser.tag, inline: true },
+      { name: 'Pet', value: petName },
+      { name: 'Status', value: '⏳ Waiting for trade acceptance...' }
+    )
+    .setFooter({ text: 'This trade request will expire in 5 minutes' })
+    .setTimestamp();
+
+  const setupMsg = await message.channel.send({
+    embeds: [setupEmbed],
+    components: [buttons]
+  });
+
+  const setup = {
+    setupMessage: setupMsg,
+    initiator: {
+      discordId: message.author.id,
+      discordTag: message.author.tag,
+      robloxUsername: null,
+      robloxId: null
+    },
+    partner: {
+      discordId: targetUser.id,
+      discordTag: targetUser.tag,
+      robloxUsername: null,
+      robloxId: null
+    },
+    pet: petName,
+    stage: 'AWAITING_ACCEPTANCE',
+    timestamp: Date.now()
+  };
+
+  activeSetups.set(setupId, setup);
+
+  // Setup button collector
+  const collector = setupMsg.createMessageComponentCollector({ time: 300000 }); // 5 minutes
+
+  collector.on('collect', async (interaction) => {
+    if (![setup.initiator.discordId, setup.partner.discordId].includes(interaction.user.id)) {
+      return interaction.reply({ content: '❌ This trade doesn\'t involve you!', ephemeral: true });
+    }
+
+    switch (interaction.customId) {
+      case 'accept_trade':
+        if (interaction.user.id !== setup.partner.discordId) {
+          return interaction.reply({ content: '❌ Only the trade partner can accept!', ephemeral: true });
+        }
+        await handleTradeAcceptance(interaction, setup, setupId);
+        break;
+
+      case 'decline_trade':
+        if (interaction.user.id !== setup.partner.discordId) {
+          return interaction.reply({ content: '❌ Only the trade partner can decline!', ephemeral: true });
+        }
+        await handleTradeDecline(interaction, setup, setupId);
+        collector.stop();
+        break;
+
+      case 'cancel_trade':
+        if (interaction.user.id !== setup.initiator.discordId) {
+          return interaction.reply({ content: '❌ Only the trade initiator can cancel!', ephemeral: true });
+        }
+        await handleTradeCancel(interaction, setup, setupId);
+        collector.stop();
+        break;
+    }
+  });
+
+  collector.on('end', (collected, reason) => {
+    if (reason === 'time') {
+      const timeoutEmbed = new EmbedBuilder()
+        .setTitle('⌛ Trade Request Expired')
+        .setColor('#FF0000')
+        .setDescription(`Trade Setup ${setupId} has expired.`)
+        .setTimestamp();
+
+      setupMsg.edit({
+        embeds: [timeoutEmbed],
+        components: []
+      });
+      activeSetups.delete(setupId);
+    }
+  });
+}
+
+async function handleTradeAcceptance(interaction, setup, setupId) {
+  setup.stage = 'AWAITING_ROBLOX_INFO';
+  await interaction.update({ components: [] });
+
+  const robloxPrompt = new EmbedBuilder()
+    .setTitle('🎮 Roblox Information Required')
+    .setColor('#00FF00')
+    .setDescription('Please provide your Roblox usernames.')
+    .addFields(
+      { name: 'Instructions', value: 'Both users should type their Roblox username in chat.' },
+      { name: 'Format', value: 'roblox: YourRobloxUsername' }
+    )
+    .setTimestamp();
+
+  await interaction.channel.send({ embeds: [robloxPrompt] });
+
+  // Setup message collector for Roblox usernames
+  const filter = m =>
+    (m.author.id === setup.initiator.discordId || m.author.id === setup.partner.discordId) &&
+    m.content.toLowerCase().startsWith('roblox:');
+
+  const collector = interaction.channel.createMessageCollector({ filter, time: 300000 });
+
+  collector.on('collect', async (msg) => {
+    const robloxUsername = msg.content.split(':')[1].trim();
+
+    try {
+      const verifyResult = await verifyRobloxUser(robloxUsername);
+      if (!verifyResult.success) {
+        return msg.reply(`❌ Invalid Roblox username! Error: ${verifyResult.error}`);
+      }
+
+      if (msg.author.id === setup.initiator.discordId) {
+        setup.initiator.robloxUsername = robloxUsername;
+        setup.initiator.robloxId = verifyResult.userId;
+        msg.reply('✅ Roblox username verified!');
+      } else {
+        setup.partner.robloxUsername = robloxUsername;
+        setup.partner.robloxId = verifyResult.userId;
+        msg.reply('✅ Roblox username verified!');
+      }
+
+      // Check if both users have provided their usernames
+      if (setup.initiator.robloxId && setup.partner.robloxId) {
+        collector.stop('COMPLETE');
+      }
+    } catch (error) {
+      msg.reply('❌ Error verifying Roblox username. Please try again.');
+    }
+  });
+
+  collector.on('end', async (collected, reason) => {
+    if (reason === 'COMPLETE') {
+      await createFinalTrade(setup, interaction.channel);
+    } else if (reason === 'time') {
+      interaction.channel.send('⌛ Timeout: Failed to provide Roblox usernames in time.');
+    }
+    activeSetups.delete(setupId);
+  });
+}
+
+async function createFinalTrade(setup, channel) {
+  const tradeId = generateTradeId();
+  const confirmButtons = createConfirmButtons();
+
+  const tradeEmbed = new EmbedBuilder()
+    .setTitle('🤝 Trade Ready')
+    .setColor('#00FF00')
+    .setDescription(`Trade ID: ${tradeId}`)
+    .addFields(
+      { name: 'Initiator', value: `Discord: ${setup.initiator.discordTag}\nRoblox: ${setup.initiator.robloxUsername}`, inline: true },
+      { name: 'Partner', value: `Discord: ${setup.partner.discordTag}\nRoblox: ${setup.partner.robloxUsername}`, inline: true },
+      { name: 'Pet', value: setup.pet },
+      { name: 'Status', value: '⏳ Waiting for confirmations' }
+    )
+    .setTimestamp();
+
+  const tradeMsg = await channel.send({
+    embeds: [tradeEmbed],
+    components: [confirmButtons]
+  });
+
+  pendingTrades.set(tradeId, {
+    ...setup,
+    tradeMessage: tradeMsg,
+    confirmations: new Set(),
+    tradeId
+  });
+
+  const collector = tradeMsg.createMessageComponentCollector({ time: 300000 });
+
+  collector.on('collect', async (interaction) => {
+    await handleConfirmation(interaction, tradeId);
+  });
+
+  collector.on('end', (collected, reason) => {
+    if (reason === 'time') {
+      tradeMsg.edit({ components: [] });
+      pendingTrades.delete(tradeId);
+    }
+  });
+}
+
+async function handleConfirmation(interaction, tradeId) {
+  const trade = pendingTrades.get(tradeId);
+
+  if (![trade.initiator.discordId, trade.partner.discordId].includes(interaction.user.id)) {
+    return interaction.reply({ content: '❌ This trade doesn\'t involve you!', ephemeral: true });
+  }
+
+  const user = interaction.user.id === trade.initiator.discordId ? trade.initiator : trade.partner;
+
+  if (trade.confirmations.has(user.discordId)) {
+    return interaction.reply({ content: '❌ You have already confirmed this trade!', ephemeral: true });
+  }
+
+  trade.confirmations.add(user.discordId);
+
+  if (trade.confirmations.size === 2) {
+    await finalizeTrade(trade);
+  } else {
+    interaction.reply({ content: '✅ You have confirmed the trade!', ephemeral: true });
+  }
+}
+
+async function finalizeTrade(trade) {
+  // Your final trade logic here (pet transfer, etc.)
+}
+
+function handleTradeCancel(interaction, setup, setupId) {
+  const cancelEmbed = new EmbedBuilder()
+    .setTitle('❌ Trade Cancelled')
+    .setColor('#FF0000')
+    .setDescription(`The trade between ${setup.initiator.discordTag} and ${setup.partner.discordTag} has been cancelled.`)
+    .setTimestamp();
+
+  setup.setupMessage.edit({
+    embeds: [cancelEmbed],
+    components: []
+  });
+
+  activeSetups.delete(setupId);
+}
+
+function handleTradeConfirmation(message) {
+  // Confirmation logic here
+}
+
+function checkTradeStatus(message) {
+  // Status logic here
+}
+
+function sendHelpMessage(message) {
+  const helpEmbed = new EmbedBuilder()
+    .setTitle('Trade System Help')
+    .setDescription('Use the following commands to interact with the trade system:')
+    .addFields(
+      { name: '!trade <user> <petname>', value: 'Start a trade with another user.' },
+      { name: '!trade confirm', value: 'Confirm a trade.' },
+      { name: '!trade cancel', value: 'Cancel a trade.' },
+      { name: '!trade status', value: 'Check your ongoing trades.' }
+    )
+    .setFooter({ text: 'You can also use the buttons to interact with trades.' });
+
+  message.reply({ embeds: [helpEmbed] });
+}
+
+function generateSetupId() {
+  return Math.floor(Math.random() * 1000000).toString();
+}
+
+function generateTradeId() {
+  return Math.floor(Math.random() * 1000000).toString();
+}
+
+function createTradeButtons() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('accept_trade')
+      .setLabel('Accept')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('decline_trade')
+      .setLabel('Decline')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('cancel_trade')
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Secondary)
+  );
+}
+
+function createConfirmButtons() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('confirm_trade')
+      .setLabel('Confirm')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('cancel_trade')
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Danger)
+  );
+}
+
+// Helper Functions
+async function verifyRobloxUser(username) {
+    try {
+      const userId = await noblox.getIdFromUsername(username);
+      const userInfo = await noblox.getPlayerInfo(userId);
+      return { 
+        success: true, 
+        userId,
+        userInfo 
+      };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.message 
+      };
+    }
+  }
+  
+  function generateSetupId() {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 8);
+    return `SETUP_${timestamp}_${random}`.toUpperCase();
+  }
+  
+  function generateTradeId() {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 8);
+    return `TRADE_${timestamp}_${random}`.toUpperCase();
+  }
+  
+  async function handleTradeCancel(message) {
+    const userTrade = Array.from(pendingTrades.values()).find(
+      trade => trade.initiator.discordId === message.author.id || 
+      trade.partner.discordId === message.author.id
+    );
+  
+    if (!userTrade) {
+      return message.reply('❌ You don\'t have any active trades to cancel!');
+    }
+  
+    const cancelEmbed = new EmbedBuilder()
+      .setTitle('❌ Trade Cancelled')
+      .setColor('#FF0000')
+      .setDescription(`Trade ID: ${userTrade.tradeId}`)
+      .addFields(
+        { name: 'Initiator', value: userTrade.initiator.discordTag, inline: true },
+        { name: 'Partner', value: userTrade.partner.discordTag, inline: true },
+        { name: 'Pet', value: userTrade.pet },
+        { name: 'Status', value: '❌ Cancelled by ' + message.author.tag }
+      )
+      .setTimestamp();
+  
+    await userTrade.tradeMessage.edit({
+      embeds: [cancelEmbed],
+      components: [] // Remove any buttons
+    });
+  
+    pendingTrades.delete(userTrade.tradeId);
+    return message.reply('✅ Trade has been cancelled successfully.');
+  }
+  
+  async function checkTradeStatus(message) {
+    const userTrade = Array.from(pendingTrades.values()).find(
+      trade => trade.initiator.discordId === message.author.id || 
+      trade.partner.discordId === message.author.id
+    );
+  
+    if (!userTrade) {
+      return message.reply('❌ You don\'t have any active trades!');
+    }
+  
+    const statusEmbed = new EmbedBuilder()
+      .setTitle('📊 Trade Status')
+      .setColor('#0099ff')
+      .setDescription(`Trade ID: ${userTrade.tradeId}`)
+      .addFields(
+        { name: 'Initiator', value: `Discord: ${userTrade.initiator.discordTag}\nRoblox: ${userTrade.initiator.robloxUsername || 'Not provided'}`, inline: true },
+        { name: 'Partner', value: `Discord: ${userTrade.partner.discordTag}\nRoblox: ${userTrade.partner.robloxUsername || 'Not provided'}`, inline: true },
+        { name: 'Pet', value: userTrade.pet },
+        { name: 'Confirmations', value: `${userTrade.confirmations.size}/2 users have confirmed` },
+        { name: 'Time Remaining', value: getTimeRemaining(userTrade.timestamp) }
+      )
+      .setTimestamp();
+  
+    return message.reply({ embeds: [statusEmbed] });
+  }
+  
+  function getTimeRemaining(timestamp) {
+    const timeElapsed = Date.now() - timestamp;
+    const timeLimit = 300000; // 5 minutes in milliseconds
+    const timeLeft = timeLimit - timeElapsed;
+  
+    if (timeLeft <= 0) return 'Expired';
+    return `${Math.ceil(timeLeft / 1000)} seconds`;
+  }
+  
+  function sendHelpMessage(message) {
+    const helpEmbed = new EmbedBuilder()
+      .setTitle('📜 Trading System Help')
+      .setColor('#0099ff')
+      .setDescription('Complete guide to using the trading system:')
+      .addFields(
+        { name: '🚀 Start a Trade', value: '!trade @user <pet name>' },
+        { name: '✅ Confirm Trade', value: '!trade confirm' },
+        { name: '❌ Cancel Trade', value: '!trade cancel' },
+        { name: '📊 Check Status', value: '!trade status' },
+        { name: '❓ Get Help', value: '!trade help' },
+        { name: '📝 Example', value: '!trade @bob "Neon Unicorn"' }
+      )
+      .addFields({
+        name: '🔄 Trade Process',
+        value: `1. Initiate trade with \`!trade\` command
+  Partner accepts/declines
+  Both users provide Roblox usernames
+  Both users confirm the trade
+  Trade processes in Roblox`
+      })
+      .setFooter({ text: 'Trade requests expire after 5 minutes of inactivity' })
+      .setTimestamp();
+  
+    return message.channel.send({ embeds: [helpEmbed] });
+  }
+  
+  async function cleanupExpiredTrades() {
+    const now = Date.now();
+  
+    for (const [tradeId, trade] of pendingTrades.entries()) {
+      if (now - trade.timestamp > 300000) { // 5 minutes
+        const expiredEmbed = new EmbedBuilder()
+          .setTitle('⌛ Trade Expired')
+          .setColor('#FF0000')
+          .setDescription(`Trade ID: ${tradeId}`)
+          .addFields(
+            { name: 'Reason', value: 'Trade expired due to inactivity' }
+          )
+          .setTimestamp();
+  
+        try {
+          await trade.tradeMessage.edit({
+            embeds: [expiredEmbed],
+            components: []
+          });
+        } catch (error) {
+          console.error('Error updating expired trade message:', error);
+        }
+  
+        pendingTrades.delete(tradeId);
+      }
+    }
+  }
+  
+  setInterval(cleanupExpiredTrades, 60000);
+  
+  // Error Handler
+  function handleError(error, message) {
+    console.error('Trade Error:', error);
+    const errorEmbed = new EmbedBuilder()
+      .setTitle('❌ Error Occurred')
+      .setColor('#FF0000')
+      .setDescription('An error occurred while processing your trade.')
+      .addFields(
+        { name: 'Error Message', value: error.message || 'Unknown error' },
+        { name: 'What to do?', value: 'Please try again or contact support if the issue persists.' }
+      )
+      .setTimestamp();
+  
+    return message.channel.send({ embeds: [errorEmbed] });
+  }
+  
+  // my:3 function to validate params
+  function validateTradeParams(pet) {
+    if (!pet || pet.length < 3) {
+      return {
+        valid: false,
+        reason: 'Pet name must be at least 3 characters long'
+      };
+    }
+    if (pet.length > 100) {
+      return {
+        valid: false,
+        reason: 'Pet name is too long (max 100 characters)'
+      };
+    }
+    return {
+      valid: true,
+      reason: null
+    };
+  }
+  
