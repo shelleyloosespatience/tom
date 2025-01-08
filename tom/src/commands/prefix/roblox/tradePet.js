@@ -1,10 +1,7 @@
-// File path: commands/trade.js
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const mongoose = require('mongoose');
 const { monitorTrade } = require('../../../services/robloxAutomation');
 const { validateTradeParams } = require('../../../services/validation');
-
-// MongoDB Schema for trades
 const tradeSchema = new mongoose.Schema({
   initiatorId: String,
   partnerId: String,
@@ -18,8 +15,7 @@ module.exports = {
   name: 'trade',
   description: 'Handles pet trading in Adopt Me',
   async execute(message, args) {
-    // Connect to MongoDB
-    await mongoose.connect('mongodb://localhost:27017/tradeDB', { useNewUrlParser: true, useUnifiedTopology: true });
+    await mongoose.connect('mongodb://localhost:27017/tradeDB', { useNewUrlParser: true, useUnifiedTopology: true }); //uh ;-; no mongo db used so this is a placeholder ig :3
 
     if (args.length < 3) {
       return message.reply('❌ Usage: `!trade @user <petname>`');
@@ -73,14 +69,11 @@ module.exports = {
     );
 
     const msg = await message.channel.send({ embeds: [embed], components: [buttons] });
-
-    // Setup button interactions
     const filter = (i) => [message.author.id, targetUser.id].includes(i.user.id);
     const collector = msg.createMessageComponentCollector({ filter, time: 300000 });
 
     collector.on('collect', async (interaction) => {
       if (interaction.customId === 'accept_trade' && interaction.user.id === targetUser.id) {
-        // Update DB status
         trade.status = 'Accepted';
         await trade.save();
 
@@ -91,8 +84,6 @@ module.exports = {
           { name: 'Status', value: '✔️ Partner accepted the trade! Initiating automation...' }
         );
         await msg.edit({ embeds: [embed], components: [] });
-
-        // Start monitoring trade
         try {
           await monitorTrade(message.author.id, targetUser.id, petName);
           trade.status = 'Completed';
